@@ -1,0 +1,250 @@
+//t1.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+int main(int argc, char *argv[]){
+if (argc !=2){
+printf("Usage is %s \n", argv[0]);
+return 1;
+
+}
+
+
+FILE *file =fopen(argv[1], "a");
+if (file == NULL){
+perror("Error openning file or creating a file\n");
+return 1;
+
+}
+
+char inp[1000];
+printf("Enter strings to write to the file (enter \"-1\" to stop): \n ");
+
+while (1){
+printf(">");
+
+if (fgets(inp, 1000, stdin) == NULL){
+printf("Error reading input.\n");
+break;
+
+}
+size_t len = strlen(inp);
+if (len >0 && inp[len-1] == '\n'){
+inp[len-1] = '\0';
+}
+
+if (strcmp (inp, "-1") == 0){
+break;
+
+}
+fprintf(file, "%s\n", inp);
+
+
+}
+
+fclose(file);
+printf("Data saved to '%s'\n", argv[1]);
+return 0;
+
+
+}
+
+
+
+
+//t2.c
+#include <stdio.h>
+#include <stdlib.h>
+
+int main(){
+pid_t child_pid, grandchild_pid;
+
+child_pid = fork();
+
+if (child_pid ==0){ //child
+grandchild_pid = fork();
+
+
+if (grandchild_pid ==0){
+
+sleep(1);
+printf("I am grandchild\n");
+
+}
+else {
+sleep(2);
+printf("I am child\n");
+
+}
+
+}
+
+else{
+sleep(3);
+printf("I am parent\n");
+
+
+}
+return 0;
+}
+
+
+
+
+
+
+//t3.c
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <sys/types.h> 
+
+
+int main(){
+
+int count =1;
+pid_t a, b, c;
+
+
+a = fork();
+if (a>0) b = fork();
+if (b>0) c = fork();
+
+if (a ==0 || b ==0|| c ==0){
+if (getpid() %2 !=0){
+fork(); //if pid odd fork
+count ++;
+
+}
+
+}
+printf("Process ID: %d, Parent ID: %d\n", getpid(), getppid());
+sleep(1);
+return 0;
+
+}
+
+
+
+
+
+//t4.c
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <sys/wait.h> 
+#include <sys/types.h> 
+
+void sort(int arr[], int n){
+for (int i =0; i<n-1; i++){
+for (int j =i+1; j<n; j++){
+if (arr[i]<arr[j]){
+int temp = arr[i];
+arr[i] = arr[j];
+arr[j] = temp;
+
+}
+
+}
+
+}
+
+}
+
+
+void oddeven(int arr[], int n){
+printf("\nOdd/Even check: \n");
+for (int i =0; i<n; i++){
+if (arr[i] %2 ==0){
+printf("%d is Even\n", arr[i]);
+}
+else{
+printf("%d is Odd\n", arr[i]);
+}
+}
+
+}
+
+int main (int argc, char *argv[]){
+if (argc<2){
+printf("Usage is %s <numbers>\n", argv[0]);
+return 1;
+
+}
+
+int n = argc -1;
+int arr[n];
+
+for (int i =0; i<n; i++){
+arr[i] = atoi (argv[i+1]);
+}
+
+
+pid_t pid =fork();
+if (pid < 0){
+perror("Fork failed");
+return 1;
+}
+
+else if (pid == 0){
+printf("\nChild Process: Sorted array...\n");
+sort(arr, n);
+printf("Sorted array: ");
+for (int i =0; i<n; i++){
+printf("%d", arr[i]);
+}
+
+printf("\n");
+exit(0);
+
+}
+else{
+wait(NULL);
+printf("\nParent Process: Checking odd even...\n");
+oddeven(arr,n);
+
+}
+
+
+return 0;
+}
+
+
+
+//t5.c
+#include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+
+int main(){
+
+printf("Parent Process ID: %d\n", getpid());
+
+pid_t child = fork();
+
+
+if (child ==0){ //child
+printf("Child Process ID: %d\n", getpid());
+
+for (int i =0; i<3; i++){
+pid_t grandchild = fork();
+
+if (grandchild ==0){ //grandchild
+printf("grandchild Process ID: %d\n", getpid());
+exit(0);
+}
+
+}
+sleep(1);
+
+}
+
+sleep(2);
+return 0;
+
+}
+
+
+
+
