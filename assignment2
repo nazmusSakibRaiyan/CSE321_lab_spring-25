@@ -1,0 +1,150 @@
+//Problem1 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <pthread.h> 
+ 
+int *fib_series = NULL; 
+int n; 
+int s_count; 
+int *search_in; 
+ 
+void *generate_fibonacci(void *arg) { 
+ fib_series = (int *)malloc((n + 1) * sizeof(int)); 
+ if (n >= 0) { 
+ fib_series[0] = 0; 
+ } 
+ if (n >= 1) { 
+ fib_series[1] = 1; 
+ } 
+ for (int i = 2; i <= n; i++) { 
+     fib_series[i] = fib_series[i - 1] + fib_series[i - 2]; 
+ } 
+ 
+ pthread_exit(NULL); 
+} 
+ 
+void *search_fibonacci(void *arg) { 
+ for (int i = 0; i < s_count; i++) { 
+     int index = search_in[i]; 
+     if (index >= 0 && index <= n) { 
+         printf("result of search #%d = %d\n", i + 1, fib_series[index]); 
+     } else { 
+         printf("result of search #%d = -1\n", i + 1); 
+     } 
+ } 
+ pthread_exit(NULL); 
+} 
+ 
+int main() { 
+ pthread_t thread1, thread2; 
+ 
+ printf("Enter the term of fibonacci sequence:\n"); 
+ scanf("%d", &n); 
+ 
+ printf("How many numbers you are willing to search?:\n"); 
+scanf("%d", &s_count); 
+search_in = (int *)malloc(s_count * sizeof(int)); 
+for (int i = 0; i < s_count; i++) { 
+printf("Enter search %d:\n", i + 1); 
+scanf("%d", &search_in[i]); 
+} 
+pthread_create(&thread1, NULL, generate_fibonacci, NULL); 
+pthread_join(thread1, NULL); 
+for (int i = 0; i <= n; i++) { 
+printf("a[%d] = %d\n", i, fib_series[i]); 
+} 
+pthread_create(&thread2, NULL, search_fibonacci, NULL); 
+pthread_join(thread2, NULL); 
+free(fib_series); 
+free(search_in); 
+return 0; 
+} 
+
+
+
+
+
+//Problem:02 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <pthread.h> 
+#include <semaphore.h> 
+ 
+sem_t students_sem; 
+sem_t st_sem; 
+pthread_mutex_t mutex; 
+ 
+int waiting_students = 0; 
+int served_students = 0; 
+int num_of_students = 10; 
+int num_of_chairs = 3; 
+ 
+ 
+void *student_thread(void *arg) { 
+ int id = *((int *)arg); 
+ sleep(rand() % 3); 
+ pthread_mutex_lock(&mutex); 
+     
+ if (waiting_students < num_of_chairs) { 
+     printf("Student %d started waiting for consultation\n", id); 
+     waiting_students++; 
+     sem_post(&students_sem); 
+     pthread_mutex_unlock(&mutex); 
+ 
+     sem_wait(&st_sem); 
+     printf("Student %d is getting consultation\n", id); 
+     sleep(1); 
+     printf("Student %d finished getting consultation and left\n", id); 
+     pthread_mutex_lock(&mutex); 
+     served_students++; 
+     pthread_mutex_unlock(&mutex);      
+ } 
+     
+ else { 
+     printf("No chairs remaining in lobby. Student %d Leaving.....\n", id); 
+     pthread_mutex_unlock(&mutex); 
+ } 
+ free(arg); 
+ pthread_exit(NULL); 
+} 
+ 
+void *st_thread(void *arg) { 
+ while (served_students < num_of_students) { 
+     sem_wait(&students_sem); 
+ 
+     pthread_mutex_lock(&mutex); 
+     printf("A waiting student started getting consultation\n"); 
+     waiting_students--; 
+     printf("Number of students now waiting: %d\n", waiting_students); 
+     printf("ST giving consultation\n"); 
+     pthread_mutex_unlock(&mutex); 
+     sem_post(&st_sem); 
+     sleep(1); 
+ } 
+ pthread_exit(NULL); 
+} 
+ 
+int main() { 
+ pthread_t st_tid, student_tids[num_of_students]; 
+ sem_init(&students_sem, 0, 0); 
+ sem_init(&st_sem, 0, 0); 
+ pthread_mutex_init(&mutex, NULL); 
+ pthread_create(&st_tid, NULL, st_thread, NULL); 
+ 
+ for (int i = 0; i < num_of_students; i++) { 
+ int *id = malloc(sizeof(int)); 
+ *id = i; 
+ pthread_create(&student_tids[i], NULL, student_thread, id); 
+ } 
+ 
+ for (int i = 0; i < num_of_students; i++) { 
+ pthread_join(student_tids[i], NULL); 
+ } 
+ pthread_join(st_tid, NULL); 
+ pthread_mutex_destroy(&mutex); 
+ sem_destroy(&students_sem); 
+ sem_destroy(&st_sem); 
+ printf("Number of served students: %d\n", served_students); 
+ return 0; 
+}
