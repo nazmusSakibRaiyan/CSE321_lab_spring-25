@@ -1,0 +1,169 @@
+//Task1.c 
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <string.h> 
+#include <unistd.h> 
+#include <sys/shm.h> 
+#include <sys/ipc.h> 
+#include <sys/types.h> 
+#include <sys/wait.h> 
+struct shared { 
+char sel[100]; 
+int b; 
+}; 
+ 
+int main() { 
+ key_t key = 1234; 
+ int shmid = shmget(key, sizeof(struct shared), IPC_CREAT | 0666); 
+ struct shared *data = (struct shared *)shmat(shmid, NULL, 0); 
+ int fd[2]; 
+ pipe(fd); 
+ 
+ printf("Provide Your Input From Given Options:\n"); 
+ printf("1. Type a to Add Money\n"); 
+ printf("2. Type w to Withdraw Money\n"); 
+ printf("3. Type c to Check Balance\n"); 
+ 
+ fgets(data->sel, sizeof(data->sel), stdin); 
+ data->sel[strcspn(data->sel, "\n")] = 0; 
+ data->b = 1000; 
+ 
+ printf("Your selection: %s\n\n", data->sel); 
+ pid_t pid = fork(); 
+ if (pid == 0) {      
+     if (strcmp(data->sel, "a") == 0) { 
+         printf("Enter amount to be added:\n"); 
+         int amount; 
+         scanf("%d", &amount); 
+         if (amount > 0) { 
+             data->b += amount; 
+             printf("Balance added successfully\n"); 
+             printf("Updated balance after addition:\n%d\n", data->b); 
+         } else { 
+             printf("Adding failed, Invalid amount\n"); 
+         } 
+     } else if (strcmp(data->sel, "w") == 0) { 
+         printf("Enter amount to be withdrawn:\n"); 
+         int amount; 
+         scanf("%d", &amount); 
+         if (amount > 0 && amount <= data->b) { 
+             data->b -= amount; 
+             printf("Balance withdrawn successfully\n"); 
+             printf("Updated balance after withdrawal:\n%d\n", data->b); 
+         } else { 
+             printf("Withdrawal failed, Invalid amount\n"); 
+         } 
+     } else if (strcmp(data->sel, "c") == 0) { 
+         printf("Your current balance is:\n%d\n", data->b); 
+     } else { 
+         printf("Invalid selection\n"); 
+     } 
+ 
+     close(fd[0]); 
+     write(fd[1], "Thank you for using\n", 21); 
+     close(fd[1]); 
+     exit(0); 
+ } else { 
+     // Parent 
+     wait(NULL); 
+     close(fd[1]); 
+     char msg[100]; 
+     read(fd[0], msg, sizeof(msg)); 
+     printf("%s", msg); 
+     close(fd[0]); 
+ 
+     shmctl(shmid, IPC_RMID, NULL); 
+ 
+ } 
+ return 0; 
+}
+
+
+//Task2.c
+
+#include <stdio.h> 
+#include <stdlib.h> 
+#include <unistd.h> 
+#include <string.h> 
+#include <sys/ipc.h> 
+#include <sys/msg.h> 
+#include <sys/types.h> 
+#include <sys/wait.h> 
+ 
+struct msg { 
+ long int type; 
+ char txt[6]; 
+}; 
+ 
+int main() { 
+ key_t key = 1234; 
+ int msgid = msgget(key, IPC_CREAT | 0666); 
+ struct msg m1; 
+ 
+ printf("Please enter the workspace name:\n"); 
+ char workspace[100]; 
+ fgets(workspace, sizeof(workspace), stdin); 
+ workspace[strcspn(workspace, "\n")] = 0; 
+ 
+ if (strcmp(workspace, "cse321") != 0) { 
+     printf("Invalid workspace name\n"); 
+     msgctl(msgid, IPC_RMID, NULL); 
+     return 0; 
+ } 
+ 
+ m1.type = 1; 
+ strcpy(m1.txt, workspace); 
+ msgsnd(msgid, &m1, sizeof(m1.txt), 0); 
+ printf("Workspace name sent to otp generator from log in: %s\n\n", m1.txt); 
+ 
+ pid_t pid_otp = fork(); 
+ if (pid_otp == 0) {   
+     struct msg recv_msg; 
+     msgrcv(msgid, &recv_msg, sizeof(recv_msg.txt), 1, 0); 
+     printf("OTP generator received workspace name from log in: %s\n\n", recv_msg.txt); 
+ 
+     struct msg otp_msg; 
+     otp_msg.type = 2; 
+     sprintf(otp_msg.txt, "%d", getpid()); 
+     msgsnd(msgid, &otp_msg, sizeof(otp_msg.txt), 0); 
+     printf("OTP sent to log in from OTP generator: %s\n", otp_msg.txt); 
+ 
+     otp_msg.type = 3; 
+     msgsnd(msgid, &otp_msg, sizeof(otp_msg.txt), 0); 
+     printf("OTP sent to mail from OTP generator: %s\n\n", otp_msg.txt); 
+ 
+     pid_t pid_mail = fork(); 
+     if (pid_mail == 0) { 
+         struct msg mail_msg; 
+         msgrcv(msgid, &mail_msg, sizeof(mail_msg.txt), 3, 0); 
+         printf("Mail received OTP from OTP generator: %s\n", mail_msg.txt); 
+ 
+         mail_msg.type = 4; 
+         msgsnd(msgid, &mail_msg, sizeof(mail_msg.txt), 0); 
+         printf("OTP sent to log in from mail: %s\n", mail_msg.txt); 
+         exit(0); 
+     } else { 
+         wait(NULL); 
+         exit(0); 
+     } 
+ } else { 
+     wait(NULL); 
+     struct msg otp_recv, mail_recv; 
+     msgrcv(msgid, &otp_recv, sizeof(otp_recv.txt), 2, 0); 
+     printf("Log in received OTP from OTP generator: %s\n", otp_recv.txt); 
+ 
+     msgrcv(msgid, &mail_recv, sizeof(mail_recv.txt), 4, 0); 
+     printf("Log in received OTP from mail: %s\n", mail_recv.txt); 
+ 
+     if (strcmp(otp_recv.txt, mail_recv.txt) == 0) { 
+         printf("OTP Verified\n"); 
+     } else { 
+         printf("OTP Incorrect\n"); 
+     } 
+     msgctl(msgid, IPC_RMID, NULL); 
+ } 
+ return 0;     
+ } 
+
+
+
